@@ -93,3 +93,14 @@ Indra Jaiswal
 
 Give it a ⭐ on GitHub and feel free to contribute!
 
+
+## 📸 Project Demo
+
+![Demo Screenshot](photos/1.png)
+![Demo Screenshot](photos/2.png)
+![Demo Screenshot](photos/3.png)
+![Demo Screenshot](photos/4.png)
+![Demo Screenshot](photos/5.png)
+![Demo Screenshot](photos/6.png)
+
+
