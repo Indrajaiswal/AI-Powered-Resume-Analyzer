@@ -1,0 +1,20 @@
+python
+java
+machine learning
+deep learning
+sql
+html
+css
+javascript
+django
+flask
+tensorflow
+pytorch
+data analysis
+nlp
+computer vision
+react
+nodejs
+git
+docker
+kubernetes
