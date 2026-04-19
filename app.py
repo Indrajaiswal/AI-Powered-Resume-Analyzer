@@ -3,6 +3,19 @@ import PyPDF2
 import re
 import subprocess
 
+
+from sentence_transformers import SentenceTransformer, util
+
+# ================= LOAD MODEL =================
+@st.cache_resource(show_spinner="Loading AI model...")
+def load_model():
+    return SentenceTransformer('all-MiniLM-L6-v2')
+
+model = load_model()
+
+
+
+
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="AI-Powered Resume Analyzer and Career Chatbot System", layout="wide")
 
@@ -14,18 +27,95 @@ st.markdown("""
 # ================= SESSION STATE =================
 if "analysis_done" not in st.session_state:
     st.session_state.analysis_done = False
+    st.session_state.resume_text = ""
+    st.session_state.job_desc = ""
+    st.session_state.resume_skills = []
+    st.session_state.jd_skills = []
+    st.session_state.missing = []
 
 # ================= INPUT =================
-uploaded_file = st.file_uploader("📄 Upload Resume (PDF)", type=["pdf"])
+uploaded_file = st.file_uploader("📄 Upload Resume (PDF)", type=["pdf"],key="resume_upload")
 job_desc = st.text_area("📝 Paste Job Description")
 
-# ================= SKILLS DATABASE =================
-skills_db = [
-    "python", "machine learning", "deep learning", "nlp",
-    "tensorflow", "pytorch", "sql", "pandas", "numpy",
-    "flask", "fastapi", "data analysis", "git",
-    "scikit-learn", "matplotlib", "seaborn"
+# # ================= SKILLS DATABASE =================
+skill_bank = [
+    # Programming
+    "python", "java", "sql", "javascript",
+
+    # Data Science
+    "data analysis", "pandas", "numpy", "statistics",
+
+    # Machine Learning
+    "machine learning", "deep learning",
+    "supervised learning", "unsupervised learning",
+    "model training", "evaluation metrics",
+
+    # NLP
+    "natural language processing", "nlp",
+    "transformers", "embeddings", "llm",
+    "large language model", "prompt engineering",
+
+    # Advanced AI
+    "rag", "retrieval augmented generation",
+    "vector database", "agentic ai", "ai agents",
+
+    # Computer Vision
+    "computer vision", "image classification",
+    "object detection",
+
+    # MLOps / Deployment
+    "mlops", "docker", "kubernetes",
+    "model deployment", "fastapi",
+
+    # Frameworks
+    "tensorflow", "pytorch", "scikit-learn",
+
+    # Tools
+    "git", "github"
 ]
+
+
+@st.cache_resource
+def build_skill_embeddings():
+    return {
+        skill: model.encode(skill, convert_to_tensor=True)
+        for skill in skill_bank
+    }
+
+skill_embeddings = build_skill_embeddings()
+
+
+skill_groups = {
+    "llm": ["large language model", "llm"],
+    "nlp": ["natural language processing", "nlp"],
+    "cv": ["computer vision", "image classification", "object detection", "image processing"],
+    "agents": ["ai agents", "agentic ai", "workflow orchestration"],
+    "ml": ["machine learning", "supervised learning", "unsupervised learning"],
+    "scikit learn": ["scikit-learn", "scikit learn", "sklearn"],
+    "metrics": ["evaluation metrics", "metrics", "bias variance tradeoff"]
+}
+
+
+def normalize_skill(skill):
+    skill = skill.lower().replace("-", " ")
+
+    for key, values in skill_groups.items():
+        for v in values:
+            if v in skill:
+                return key
+
+    return skill
+
+
+
+
+def is_similar(skill1, skill2):
+    emb1 = model.encode(skill1, convert_to_tensor=True)
+    emb2 = model.encode(skill2, convert_to_tensor=True)
+
+    return util.cos_sim(emb1, emb2).item() > 0.75
+
+
 
 
 st.markdown("""
@@ -205,47 +295,143 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption("Built by Indra 🚀")
+    
+
+
+def extract_skills_ai(text, skill_bank):
+
+    found_skills = []
+
+    sentences = text.split(".")
+
+    # PRE-COMPUTE sentence embeddings once
+    sentence_embeddings = [
+        model.encode(sentence, convert_to_tensor=True)
+        for sentence in sentences
+        if sentence.strip()
+    ]
+
+    for skill in skill_bank:
+
+        skill_embedding = skill_embeddings[skill]   # 🔥 reused (FAST)
+
+        for sent_emb in sentence_embeddings:
+
+            similarity = util.cos_sim(sent_emb, skill_embedding).item()
+
+            if similarity > 0.55:
+                found_skills.append(skill)
+                break
+
+    return sorted(set(found_skills))
+
+
+def extract_skills(text, skill_bank):
+    text = text.lower()
+    found = []
+
+    for skill in skill_bank:
+        skill_clean = skill.replace("-", " ")
+        pattern = r"\b" + re.escape(skill_clean) + r"\b"
+
+        if re.search(pattern, text):
+            found.append(normalize_skill(skill))
+
+    return sorted(set(found))
 
 
 # ================= CLEAN TEXT =================
 def clean_text(text):
     text = text.lower()
-    text = re.sub(r"[^a-z0-9+.# ]", " ", text)
+    text = re.sub(r"[^a-z0-9+.#\s ]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
 # ================= EXTRACT PDF TEXT =================
 def extract_text(file):
     text = ""
-    reader = PyPDF2.PdfReader(file)
 
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text += page_text
+    try:
+        reader = PyPDF2.PdfReader(file)
+
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + " "
+
+    except Exception:
+        return ""
 
     return clean_text(text)
 
-# ================= RESUME SKILLS =================
-def extract_resume_skills(text):
-    found = []
 
-    for skill in skills_db:
-        if re.search(rf"\b{re.escape(skill)}\b", text):
-            found.append(skill)
 
-    return sorted(list(set(found)))
 
-# ================= JOB SKILLS (FIXED) =================
-def extract_job_skills(text):
-    found = []
-    text = text.lower()
+# ================= ATS SCORE CALCULATION =================
 
-    for skill in skills_db:
-        if skill in text:
-            found.append(skill)
 
-    return sorted(list(set(found)))
+def expand_skills(skills):
+    expanded = set(skills)
+
+    for key, values in skill_groups.items():
+        if any(v in [s.lower() for s in skills] for v in values):
+            expanded.add(key)
+
+    return expanded
+
+
+def soft_skill_match(resume_skills, jd_skills):
+    if len(jd_skills) == 0:
+        return 0
+
+    score = 0
+    total = len(jd_skills)
+
+    # pre-encode resume skills once
+    resume_embs = {
+        r: model.encode(r, convert_to_tensor=True)
+        for r in resume_skills
+    }
+
+    for skill in jd_skills:
+        skill_emb = model.encode(skill, convert_to_tensor=True)
+
+        for r in resume_skills:
+            sim = util.cos_sim(skill_emb, resume_embs[r]).item()
+
+            if sim > 0.75:
+                score += 1
+                break
+
+    return score / total
+
+
+
+def calculate_ats_ai(resume_text, resume_skills, jd_skills):
+
+    if not jd_skills:
+        return 0
+
+    resume_set = expand_skills(resume_skills)
+    jd_set = expand_skills(jd_skills)
+
+    # COVERAGE
+    coverage = soft_skill_match(resume_skills, jd_skills)
+    score1 = coverage * 60
+
+    # SEMANTIC
+    resume_vec = model.encode(list(resume_set), convert_to_tensor=True).mean(dim=0)
+    jd_vec = model.encode(list(jd_set), convert_to_tensor=True).mean(dim=0)
+
+    semantic = util.cos_sim(resume_vec, jd_vec).item()
+    semantic = max(0, min(semantic, 1.0))
+    score2 = semantic * 25
+
+    # READABILITY
+    score3 = min(len(resume_text.split()) / 300, 1) * 15
+
+    return int(score1 + score2 + score3)
+
 
 # ================= FORMAT AI OUTPUT (ADD HERE) =================
 def format_ai_output(text):
@@ -343,6 +529,7 @@ QUESTION:
     except Exception as e:
         return f"Error: {str(e)}"
 
+
 # ================= ANALYZE BUTTON =================
 if st.button("🔍 Analyze Resume"):
 
@@ -350,16 +537,30 @@ if st.button("🔍 Analyze Resume"):
 
         resume_text = extract_text(uploaded_file)
 
-        # FIXED LOGIC
-        resume_skills = extract_resume_skills(resume_text)
-        jd_skills = extract_job_skills(job_desc)
+        # STEP 1: extract skills
+        resume_skills = extract_skills(resume_text, skill_bank)
+        jd_skills = extract_skills(job_desc, skill_bank)
 
-        match = len(set(resume_skills) & set(jd_skills))
-        total = len(jd_skills)
+        # STEP 2: normalize FIRST
+        resume_skills = [normalize_skill(s) for s in resume_skills]
+        jd_skills = [normalize_skill(s) for s in jd_skills]
 
-        ai_score = int((match / total) * 100) if total > 0 else 0
-        ats_score = int((len(resume_skills) / len(skills_db)) * 100)
+        # STEP 3: remove duplicates
+        resume_skills = list(set([normalize_skill(s) for s in resume_skills]))
+        jd_skills = list(set([normalize_skill(s) for s in jd_skills]))
 
+        # STEP 4: ATS SCORE
+        ats_score = calculate_ats_ai(resume_text,resume_skills, jd_skills)
+
+        # STEP 5: AI MATCH SCORE
+        ai_score = int(
+            util.cos_sim(
+                model.encode(resume_text, convert_to_tensor=True),
+                model.encode(job_desc, convert_to_tensor=True)
+            ).item() * 100
+        )
+
+        # STEP 6: missing skills
         missing = list(set(jd_skills) - set(resume_skills))
 
         # STORE STATE
