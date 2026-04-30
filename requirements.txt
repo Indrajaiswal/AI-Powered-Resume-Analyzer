@@ -1,5 +1,6 @@
 streamlit
 sentence-transformers
+torch
 scikit-learn
 matplotlib
 nltk
