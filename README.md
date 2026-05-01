@@ -12,6 +12,14 @@
 - It helps students and job seekers improve their resumes and increase their chances of getting shortlisted.
 
 
+
+
+## Live Demo
+https://ai-powered-resume-analyzer-ggmxdexnrwnnpnyuqcgjxc.streamlit.app/
+
+
+
+
 ## ✨ Features
 - 📄 Upload and analyze PDF resumes
 - 🧠 Extract skills using NLP-based matching
