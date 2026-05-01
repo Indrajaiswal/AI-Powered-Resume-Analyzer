@@ -760,39 +760,35 @@ if st.session_state.analysis_done:
         st.markdown("<p style='color:red; font-weight:bold;'>Low Match - Needs improvement</p>", unsafe_allow_html=True)
 
 # ================= AI COACH =================
+
+questions = [
+    "What should I improve in my resume?",
+    "Am I fit for this job?",
+    "What skills should I learn next?",
+    "What projects should I add?",
+    "How can I improve ATS score?"
+]
+
 if st.session_state.analysis_done:
 
-    st.markdown(
-        "<h3 style='color:black;'>🤖 AI Career Chatbot</h3>",
-        unsafe_allow_html=True
-    )
+     
+    st.markdown( "<h3 style='color:black;'>🤖 AI Career Chatbot</h3>", unsafe_allow_html=True )
 
-    questions = [
-        "What should I improve in my resume?",
-        "Am I fit for this job?",
-        "What skills should I learn next?",
-        "What projects should I add?",
-        "How can I improve ATS score?"
-    ]
+    # INIT STATE
+    if "chat_response" not in st.session_state:
+        st.session_state.chat_response = ""
 
+    # INPUT
+    question = st.selectbox("Select Question", questions)
 
-# ---------------- INIT STATE ----------------
-if "chat_response" not in st.session_state:
-       st.session_state.chat_response = ""
+    # ACTION
+    if st.button("💬 Ask AI"):
 
-    
-
-# ---------------- INPUT ----------------
-question = st.selectbox("Select Question", questions)
-
-
-# ---------------- ACTION ----------------
-if st.button("💬 Ask AI"):
         with st.spinner("Thinking..."):
 
-            resume_text = st.session_state.resume_text or "No resume uploaded"
-            job_desc = st.session_state.job_desc or "No job description provided"
-            missing = st.session_state.missing or []
+            resume_text = st.session_state.resume_text
+            job_desc = st.session_state.job_desc
+            missing = st.session_state.missing
 
             st.session_state.chat_response = ask_ai(
                 question,
@@ -801,31 +797,12 @@ if st.button("💬 Ask AI"):
                 missing
             )
 
-
-# ---------------- OUTPUT (IMPORTANT: ALWAYS OUTSIDE BUTTON) ----------------
-if st.session_state.chat_response:
-
-    cleaned = format_ai_output(st.session_state.chat_response)
-
-    st.markdown("### 💡 AI Response")
-
-    for line in cleaned.split("\n"):
-        if line.strip():
-            st.markdown(f"• {line.strip()}")
-
-  
-
-    # ALWAYS show latest response
+    # OUTPUT (ONLY ONCE)
     if st.session_state.chat_response:
 
         cleaned = format_ai_output(st.session_state.chat_response)
 
-        st.markdown(
-            "<h3 style='color:black;'>💡AI Response</h3>",
-            unsafe_allow_html=True
-            )
-
-       
+        st.markdown( "<h3 style='color:black;'>💡AI Response</h3>", unsafe_allow_html=True )
 
         for line in cleaned.split("\n"):
             if line.strip():
@@ -839,7 +816,6 @@ if st.session_state.chat_response:
                         border-left:4px solid #0A66C2;
                         border-radius:8px;
                         font-size:14px;
-                        line-height:1.5;
                     ">
                     • {line.strip()}
                     </div>
