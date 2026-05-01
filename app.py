@@ -451,53 +451,203 @@ def format_ai_output(text):
 
     return "\n".join(bullets)
 
-# ================= AI COACH =================
-def ask_ai(question, resume_text, job_desc):
 
-    prompt = f"""
-SYSTEM:
-You are a strict resume evaluation engine for AI/ML hiring.
 
-You MUST follow formatting rules exactly. No exceptions.
+# ================= PROMPTS =================
 
-Your job:
-- Evaluate resume brutally and realistically
-- Focus only on job-relevant gaps
-- Give actionable improvement points
+SYSTEM_PROMPT = """
+You are an ATS-level AI recruiter and resume evaluator.
 
-RULES (STRICT - MUST FOLLOW):
+CRITICAL RULES:
+- You MUST follow format exactly
+- If format is broken, output is INVALID
+- Never add extra text outside bullets
+- Never explain anything
 
-- Output ONLY bullet points (4 to 5 max)
-- Each bullet MUST start with "- "
-- Do NOT include numbering (1,2,3,etc.)
-- Do NOT include any headings, titles, or explanations
-- Do NOT write any text before or after bullets
+OUTPUT STYLE:
+- Only bullet points when required
+- No paragraphs
+- No headings
+- No conversation
 
-- Each bullet MUST be a single complete sentence
-- Do NOT break sentences into multiple lines under any condition
-- Do NOT split words (e.g., TensorFlow/PyTorch must remain intact)
-- Do NOT repeat words, phrases, or ideas
+You are NOT a chatbot.
+You are a strict evaluation engine.
+"""
 
-- Keep language simple, professional, and recruiter-friendly
-- Focus ONLY on resume vs job description gaps
-- No paragraphs allowed
-- No extra formatting, symbols, or emojis
+IMPROVEMENT_PROMPT = """
+You are an AI recruiter.
 
-- No paragraphs allowed
-- Do NOT write continuous paragraph text
-- If you cannot follow this, output nothing
+Analyze resume vs job description and suggest improvements.
+
+Rules:
+- 4 to 5 bullet points only
+- Start each with "- "
+- Focus on missing skills and improvements
+
+MISSING SKILLS:
+{missing_skills}
 
 RESUME:
-{resume_text[:2000]}
+{resume_text}
 
 JOB DESCRIPTION:
-{job_desc[:2000]}
-
-User Question:
-{question}
-
-Give 4-5 clear bullet points only.
+{job_desc}
 """
+
+
+FIT_PROMPT = """
+You are an AI recruiter.
+
+Evaluate candidate fit.
+
+STRICT RULES:
+- Output ONLY 4 bullet points
+- Each must start with "- "
+- No headings
+- No explanations outside bullets
+- Strength must be max 1 line only
+- Missing Skills must be max 1 line only
+
+FORMAT:
+- Fit Level: High/Medium/Low
+- Strengths (1 line max)
+- Missing Skills (1 line max)
+- Final Verdict
+
+RESUME:
+{resume_text}
+
+JOB DESCRIPTION:
+{job_desc}
+"""
+
+
+SKILL_PROMPT = """
+You are an AI recruiter.
+
+Suggest ONLY core technical skills needed.
+
+STRICT RULES:
+- Output ONLY 4 bullet points
+- Each must start with "- "
+- Each bullet must be MAX 1 line
+- No explanations longer than 1 line
+- ONLY ML/DL/CV skills
+- No theory explanations
+
+FORMAT:
+- Skill - relevance to job (max 1 line)
+
+MISSING SKILLS:
+{missing_skills}
+
+JOB DESCRIPTION:
+{job_desc}
+"""
+
+
+PROJECT_PROMPT = """
+You are an AI hiring manager.
+
+Generate ONLY project ideas based on missing skills.
+
+STRICT RULES:
+- Output ONLY 4 bullet points
+- Each must start with "- "
+- NO explanations after bullets
+- NO extra sentences
+- NO description inside bullet except project name + skill
+- NO "this will demonstrate", NO "showcase", NO "will help"
+- Each project must be different (no repetition of same idea)
+- Include real-world use case (not generic CV tasks)
+- Keep projects simple, practical, and realistic for student level
+- Avoid over-engineered or research-heavy wording
+
+FORMAT EXAMPLE:
+- Project name - Skill used
+- Project name - Skill used
+
+MISSING SKILLS:
+{missing_skills}
+
+JOB DESCRIPTION:
+{job_desc}
+"""
+
+ATS_PROMPT = """
+You are an ATS system evaluator.
+
+STRICT RULES:
+- Output ONLY 4 bullet points
+- Each must start with "- "
+- NO explanations
+- NO extra sentences
+- NO bold, NO formatting
+- Do NOT suggest new projects
+- Only suggest resume improvements and missing keywords
+
+Each bullet must be:
+- Keyword gap OR resume fix
+
+MISSING SKILLS:
+{missing_skills}
+
+RESUME:
+{resume_text}
+
+JOB DESCRIPTION:
+{job_desc}
+"""
+
+FINAL_RULE = """
+Return ONLY valid "- " bullet points.
+
+STRICT REQUIREMENTS:
+- Exactly 4 to 5 bullet points only
+- Each line must start with "- "
+- No explanations outside bullets
+- No headings, no numbering, no paragraphs
+- If format is not followed, output is INVALID
+
+Nothing else is allowed.
+"""
+def ask_ai(question, resume_text, job_desc, missing_skills):
+
+    question_map = {
+        "What should I improve in my resume?": "IMPROVEMENT",
+        "Am I fit for this job?": "FIT",
+        "What skills should I learn next?": "SKILLS",
+        "What projects should I add?": "PROJECTS",
+        "How can I improve ATS score?": "ATS"
+    }
+
+    mode = question_map.get(question, "IMPROVEMENT")
+
+    # ✅ SELECT TEMPLATE (THIS WAS MISSING)
+    if mode == "FIT":
+        template = FIT_PROMPT
+
+    elif mode == "SKILLS":
+        template = SKILL_PROMPT
+
+    elif mode == "PROJECTS":
+        template = PROJECT_PROMPT
+
+    elif mode == "ATS":
+        template = ATS_PROMPT
+
+    else:
+        template = IMPROVEMENT_PROMPT
+
+    # 🔥 Fill prompt safely
+    missing_text = ", ".join(missing_skills) if missing_skills else "No major gaps detected"
+
+    prompt = SYSTEM_PROMPT + "\n\n" + template.format(
+    resume_text=resume_text[:2000],
+    job_desc=job_desc[:2000],
+    missing_skills=missing_text
+)
+
 
     try:
         response = requests.post(
@@ -505,34 +655,17 @@ Give 4-5 clear bullet points only.
             json={
                 "model": "mistral",
                 "prompt": prompt,
-                "stream": False
+                "stream": False,
+                "options": {"temperature": 0.1}
             },
             timeout=180
         )
 
-        return response.json()["response"]
+        return response.json().get("response", "No response")
+
     except Exception as e:
-        return f"Error connecting to Ollama: {str(e)}"
+        return f"Error: {str(e)}"
 
-    #     # 🔥 STEP 1: remove ANSI garbage
-    #     output = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
-
-    #     # 🔥 STEP 2: remove weird unicode / duplication issues
-    #     output = re.sub(r"(\b\w+\b)(\s+\1)+", r"\1", output)
-
-    #     # 🔥 STEP 3: remove non-ascii noise
-    #     output = re.sub(r"[^\x00-\x7F]+", " ", output)
-
-    #     # 🔥 STEP 4: clean spaces
-    #     output = re.sub(r"[ \t]+", " ", output)
-
-    #     return output
-
-    # except subprocess.TimeoutExpired:
-    #     return "AI is taking too long. Try again."
-
-    # except Exception as e:
-    #     return f"Error: {str(e)}"
 
 
 # ================= ANALYZE BUTTON =================
@@ -642,22 +775,36 @@ if st.session_state.analysis_done:
         "How can I improve ATS score?"
     ]
 
+    # initialize once
+    if "chat_response" not in st.session_state:
+        st.session_state.chat_response = ""
+
     question = st.selectbox("Select Question", questions)
 
     if st.button("💬 Ask AI"):
 
         with st.spinner("Thinking..."):
-            response = ask_ai(
+            st.session_state.chat_response = ask_ai(
                 question,
                 st.session_state.resume_text,
-                st.session_state.job_desc
+                st.session_state.job_desc,
+                st.session_state.missing
+                
             )
 
-            st.session_state.chat_response = response
+  
 
-    # 👇 ALWAYS show response outside button
+    # ALWAYS show latest response
     if st.session_state.chat_response:
+
         cleaned = format_ai_output(st.session_state.chat_response)
+
+        st.markdown(
+            "<h3 style='color:black;'>💡AI Response</h3>",
+            unsafe_allow_html=True
+            )
+
+       
 
         for line in cleaned.split("\n"):
             if line.strip():
@@ -678,9 +825,3 @@ if st.session_state.analysis_done:
                     """,
                     unsafe_allow_html=True
                 )
-       
-
-        
-
-
-            
