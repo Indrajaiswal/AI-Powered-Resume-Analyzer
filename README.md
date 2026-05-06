@@ -1,23 +1,16 @@
 ## 🧠 AI Resume Analyzer & Career Chatbot | Python, Streamlit, NLP, LLMs
-- Built an AI-powered resume analysis web application that evaluates resumes against job descriptions using NLP-based skill extraction and matching algorithms.
-- Implemented an ATS scoring system to measure resume compatibility with job requirements based on extracted skills and keyword matching.
-- Developed a Generative AI career coach using local LLM (Ollama/Mistral) to provide personalized, structured resume improvement suggestions.
-- Designed an interactive Streamlit dashboard with real-time resume upload, job description parsing, and dynamic AI feedback visualization.
-- Improved user experience with custom UI styling, bullet-based AI responses, and structured career guidance formatting.
+- 	Developed an AI-powered resume analysis web application that evaluates resumes against job descriptions using NLP-based skill extraction and matching algorithms. 
+-	Implemented an ATS scoring system to measure resume compatibility using skill overlap, semantic similarity, and rule-based scoring logic
+-	Developed a Generative AI career coach using local LLM (Ollama/Mistral) to provide personalized, structured resume improvement suggestions. 
+-	Designed an interactive Streamlit dashboard with real-time resume upload, job description parsing, and dynamic AI feedback visualization. 
+-	Implemented semantic similarity using SentenceTransformer embeddings and cosine similarity for resume-job matching
+
 
 ## 📌 Overview
 
 - The AI Resume Analyzer & Career Chatbot is a smart AI-powered web application that analyzes resumes, compares them with job descriptions, calculates match scores (AI Match & ATS Score), and provides personalized career improvement suggestions using an AI chatbot.
 
 - It helps students and job seekers improve their resumes and increase their chances of getting shortlisted.
-
-
-
-
-## Live Demo
-https://ai-powered-resume-analyzer-ggmxdexnrwnnpnyuqcgjxc.streamlit.app/
-
-
 
 
 ## ✨ Features
